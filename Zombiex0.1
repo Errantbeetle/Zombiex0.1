@@ -1,0 +1,131 @@
+import sys
+import pygame
+import math  # Import the math module
+from pygame.locals import *
+
+pygame.init()
+surface = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+surfrect = surface.get_rect()
+
+# Create a person (white box) with a head and body
+person_rect = pygame.Rect((0, 0), (128, 192))
+person_rect.center = (surfrect.w / 2, surfrect.h / 2)
+
+# Create a zombie (green box)
+zombie_rect = pygame.Rect((0, 0), (64, 96))
+zombie_rect.center = (surfrect.w / 4, surfrect.h / 4)
+zombie_speed = 1
+
+speed = 2
+dragging = False  # Flag to track if the person is being dragged
+
+# Variable to track if the zombie is hit
+zombie_hit = 0
+
+# Function to draw a person
+def draw_person(surface, rect):
+    # Draw the person (white box) with a head and body
+    pygame.draw.rect(surface, (255, 255, 255), rect)
+
+    # Divide the person into top and bottom halves
+    top_half_rect = pygame.Rect(rect.left, rect.top, rect.width, rect.height // 2)
+    bottom_half_rect = pygame.Rect(rect.left, rect.centery, rect.width, rect.height // 2)
+
+    # Draw the top half (skin-colored)
+    pygame.draw.rect(surface, (255, 222, 173), top_half_rect)
+
+    # Draw the bottom half (blue)
+    pygame.draw.rect(surface, (0, 0, 255), bottom_half_rect)
+
+    # Draw a different shade of blue bump on top
+    pygame.draw.rect(surface, (0, 0, 200), (rect.left, rect.top, rect.width, 20))
+
+# Function to draw a zombie
+def draw_zombie(surface, rect):
+    # Divide the zombie into three horizontal sections
+    top_third_rect = pygame.Rect(rect.left, rect.top, rect.width, rect.height // 3)
+    middle_third_rect = pygame.Rect(rect.left, rect.top + rect.height // 3, rect.width, rect.height // 3)
+    bottom_third_rect = pygame.Rect(rect.left, rect.top + 2 * rect.height // 3, rect.width, rect.height // 3)
+
+    # Draw the top third in red if the zombie has been hit once
+    color = (255, 0, 0) if zombie_hit >= 1 else (0, 255, 0)
+    pygame.draw.rect(surface, color, top_third_rect)
+
+    # Draw the middle third in red if the zombie has been hit twice
+    color = (255, 0, 0) if zombie_hit >= 2 else (0, 255, 0)
+    pygame.draw.rect(surface, color, middle_third_rect)
+
+    # Draw the bottom third in red if the zombie has been hit three times
+    color = (255, 0, 0) if zombie_hit >= 3 else (0, 255, 0)
+    pygame.draw.rect(surface, color, bottom_third_rect)
+
+# Function to move the zombie towards the person
+def move_zombie(zombie_rect, person_rect, speed):
+    if zombie_hit < 3:  # Only move the zombie if it's not dead
+        dx = person_rect.centerx - zombie_rect.centerx
+        dy = person_rect.centery - zombie_rect.centery
+        dist = math.hypot(dx, dy)
+        dx, dy = dx / dist, dy / dist  # Normalize
+        zombie_rect.centerx += dx * speed
+        zombie_rect.centery += dy * speed
+
+# Function to handle collision between two rectangles
+def handle_collision(rect1, rect2, speed):
+    if rect1.colliderect(rect2):
+        dx = rect1.centerx - rect2.centerx
+        dy = rect1.centery - rect2.centery
+
+        if abs(dx) > abs(dy):
+            if dx > 0:
+                rect1.right = rect2.left
+            else:
+                rect1.left = rect2.right
+        else:
+            if dy > 0:
+                rect1.bottom = rect2.top
+            else:
+                rect1.top = rect2.bottom
+
+        # Bounce the rectangles in the opposite direction
+        dx, dy = -dx * speed, -dy * speed
+        rect1.centerx += dx
+        rect1.centery += dy
+        rect2.centerx -= dx
+        rect2.centery -= dy
+
+try:
+    while True:
+        for ev in pygame.event.get():
+            if ev.type == QUIT:
+                pygame.quit()
+            elif ev.type == MOUSEBUTTONDOWN:
+                if person_rect.collidepoint(ev.pos):
+                    dragging = True
+                # If the person hits the zombie, increment zombie_hit
+                if zombie_rect.collidepoint(ev.pos):
+                    zombie_hit += 1
+            elif ev.type == MOUSEBUTTONUP:
+                dragging = False
+            elif ev.type == MOUSEMOTION and dragging:
+                person_rect.center = ev.pos
+
+        # Move the zombie towards the person
+        move_zombie(zombie_rect, person_rect, zombie_speed)
+
+        # Handle collision between the person and the zombie
+        handle_collision(person_rect, zombie_rect, speed)
+
+        clock.tick(60)
+        surface.fill((0, 0, 0))
+
+        # Use the function to draw the person
+        draw_person(surface, person_rect)
+
+        # Use the function to draw the zombie only if it's not dead
+        if zombie_hit < 3:
+            draw_zombie(surface, zombie_rect)
+
+        pygame.display.flip()
+except Exception as e:
+    print(f"An error occurred: {e}")
